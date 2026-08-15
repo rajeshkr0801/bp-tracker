@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="BP Tracker" />
+  <title>BP Tracker</title>
+
+  <!-- Dynamic Web App Manifest for Direct Mobile Installation -->
+  <link rel="manifest" id="manifest-placeholder" />
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --border: #e2e8f0;
+      --normal: #16a34a;
+      --elevated: #ca8a04;
+      --stage1: #ea580c;
+      --stage2: #dc2626;
+      --crisis: #7f1d1d;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 12px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: var(--card);
+      padding: 16px;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .form-row-full {
+      grid-column: span 3;
+    }
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      display: block;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    input {
+      width: 100%;
+      padding: 10px 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      background: #f8fafc;
+    }
+    input:focus {
+      outline: 2px solid var(--primary);
+      background: #fff;
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button {
+      padding: 11px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .btn-main { background: var(--primary); color: #fff; grid-column: span 2; }
+    .btn-sec { background: #e2e8f0; color: #334155; }
+    .btn-util { background: #0891b2; color: #fff; }
+    
+    .stats-card {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 6px;
+      margin: 16px 0;
+      text-align: center;
+    }
+    .stat-label { font-size: 11px; color: #64748b; }
+    .stat-val { font-size: 15px; font-weight: 700; color: var(--primary); margin-top: 2px; }
+
+    .records-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .record-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+    }
+    .record-bp { font-size: 17px; font-weight: 700; }
+    .record-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .badge {
+      font-size: 10px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      color: #fff;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .normal { background: var(--normal); }
+    .elevated { background: var(--elevated); }
+    .stage1 { background: var(--stage1); }
+    .stage2 { background: var(--stage2); }
+    .crisis { background: var(--crisis); }
+
+    .del-btn {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-size: 16px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .container { box-shadow: none; max-width: 100%; border-radius: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🩺 BP Daily Log</h1>
+      <span id="installBadge" style="display:none; font-size:11px; background:#dbeafe; color:#1e40af; padding:3px 8px; border-radius:12px; font-weight:600;">📱 App Ready</span>
+    </div>
+
+    <!-- Input Form -->
+    <div class="no-print">
+      <form id="bpForm">
+        <div class="form-grid">
+          <div>
+            <label>Systolic</label>
+            <input type="number" id="sys" placeholder="120" required min="50" max="250" inputmode="numeric" />
+          </div>
+          <div>
+            <label>Diastolic</label>
+            <input type="number" id="dia" placeholder="80" required min="30" max="150" inputmode="numeric" />
+          </div>
+          <div>
+            <label>Pulse</label>
+            <input type="number" id="pulse" placeholder="72" required min="30" max="200" inputmode="numeric" />
+          </div>
+          <div class="form-row-full">
+            <label>Date & Time</label>
+            <input type="datetime-local" id="readingTime" required />
+          </div>
+          <div class="form-row-full">
+            <label>Notes / Context</label>
+            <input type="text" id="notes" placeholder="e.g. Morning before meds, rested 5 mins" />
+          </div>
+        </div>
+
+        <div class="btn-grid">
+          <button type="submit" class="btn-main">➕ Save Reading</button>
+          <button type="button" class="btn-sec" onclick="window.print()">📄 Doctor's PDF</button>
+          <button type="button" class="btn-sec" onclick="exportCSV()">📊 Export CSV</button>
+          <button type="button" class="btn-util" onclick="exportJSON()">💾 Backup (JSON)</button>
+          <button type="button" class="btn-util" onclick="document.getElementById('importFile').click()">📂 Restore Data</button>
+          <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importJSON(event)" />
+        </div>
+      </form>
+    </div>
+
+    <!-- Monthly Summary Card -->
+    <div class="stats-card">
+      <div>
+        <div class="stat-label">Readings</div>
+        <div class="stat-val" id="totalReadings">0</div>
+      </div>
+      <div>
+        <div class="stat-label">Avg BP</div>
+        <div class="stat-val" id="avgBP">-- / --</div>
+      </div>
+      <div>
+        <div class="stat-label">Avg Pulse</div>
+        <div class="stat-val" id="avgPulse">--</div>
+      </div>
+    </div>
+
+    <!-- Recent Readings List -->
+    <div class="records-list" id="recordsContainer"></div>
+  </div>
+
+  <script>
+    // --- Dynamic Manifest Generation for Mobile PWA ---
+    const manifest = {
+      name: "Blood Pressure Daily Log",
+      short_name: "BP Tracker",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#f1f5f9",
+      theme_color: "#2563eb",
+      icons: [
+        {
+          src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>",
+          sizes: "192x192 512x512",
+          type: "image/svg+xml"
+        }
+      ]
+    };
+    const stringManifest = JSON.stringify(manifest);
+    const blobManifest = new Blob([stringManifest], {type: 'application/json'});
+    document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blobManifest));
+
+    // --- State & Operations ---
+    const STORAGE_KEY = 'mobile_bp_records';
+    let logs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+    function resetTime() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('readingTime').value = now.toISOString().slice(0, 16);
+    }
+    resetTime();
+
+    function classify(sys, dia) {
+      if (sys >= 180 || dia >= 120) return { label: 'Crisis', cls: 'crisis' };
+      if (sys >= 140 || dia >= 90) return { label: 'Stage 2', cls: 'stage2' };
+      if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) return { label: 'Stage 1', cls: 'stage1' };
+      if (sys >= 120 && sys <= 129 && dia < 80) return { label: 'Elevated', cls: 'elevated' };
+      return { label: 'Normal', cls: 'normal' };
+    }
+
+    function render() {
+      const container = document.getElementById('recordsContainer');
+      container.innerHTML = '';
+
+      let totalSys = 0, totalDia = 0, totalPulse = 0;
+      logs.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+      logs.forEach((item, index) => {
+        totalSys += Number(item.sys);
+        totalDia += Number(item.dia);
+        totalPulse += Number(item.pulse);
+
+        const cat = classify(item.sys, item.dia);
+        const dateStr = new Date(item.time).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        const card = document.createElement('div');
+        card.className = 'record-card';
+        card.innerHTML = `
+          <div>
+            <div class="record-bp">
+              ${item.sys} / ${item.dia} <span style="font-size:13px; font-weight:normal; color:#64748b;">mmHg (${item.pulse} bpm)</span>
+              <span class="badge ${cat.cls}">${cat.label}</span>
+            </div>
+            <div class="record-meta">${dateStr} ${item.notes ? '• ' + item.notes : ''}</div>
+          </div>
+          <button class="del-btn no-print" onclick="deleteEntry(${index})">✕</button>
+        `;
+        container.appendChild(card);
+      });
+
+      const count = logs.length;
+      document.getElementById('totalReadings').innerText = count;
+      if (count > 0) {
+        document.getElementById('avgBP').innerText = `${Math.round(totalSys / count)} / ${Math.round(totalDia / count)}`;
+        document.getElementById('avgPulse').innerText = `${Math.round(totalPulse / count)} bpm`;
+      } else {
+        document.getElementById('avgBP').innerText = '-- / --';
+        document.getElementById('avgPulse').innerText = '--';
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+    }
+
+    document.getElementById('bpForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      logs.push({
+        sys: parseInt(document.getElementById('sys').value, 10),
+        dia: parseInt(document.getElementById('dia').value, 10),
+        pulse: parseInt(document.getElementById('pulse').value, 10),
+        time: document.getElementById('readingTime').value,
+        notes: document.getElementById('notes').value.trim()
+      });
+      e.target.reset();
+      resetTime();
+      render();
+    });
+
+    function deleteEntry(index) {
+      if (confirm('Delete this entry?')) {
+        logs.splice(index, 1);
+        render();
+      }
+    }
+
+    function exportJSON() {
+      if (logs.length === 0) return alert('No data to export.');
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `BP_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+    }
+
+    function importJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const data = JSON.parse(evt.target.result);
+          if (Array.isArray(data)) {
+            logs = data;
+            render();
+            alert('Data restored successfully!');
+          }
+        } catch(err) {
+          alert('Invalid backup file.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportCSV() {
+      if (logs.length === 0) return alert('No data.');
+      let csv = "Date,Systolic,Diastolic,Pulse,Classification,Notes\n";
+      logs.forEach(r => {
+        csv += `"${r.time}",${r.sys},${r.dia},${r.pulse},"${classify(r.sys, r.dia).label}","${r.notes || ''}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `BP_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    }
+
+    render();
+  </script>
+</body>
+</html>
