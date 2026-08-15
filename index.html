@@ -7,15 +7,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="BP Tracker" />
-  <title>BP Tracker</title>
+  <title>BP Tracker & Reminder</title>
 
-  <!-- Dynamic Web App Manifest for Direct Mobile Installation -->
   <link rel="manifest" id="manifest-placeholder" />
 
   <style>
     :root {
       --primary: #2563eb;
-      --primary-dark: #1d4ed8;
       --bg: #f1f5f9;
       --card: #ffffff;
       --text: #0f172a;
@@ -62,9 +60,7 @@
       gap: 8px;
       margin-bottom: 10px;
     }
-    .form-row-full {
-      grid-column: span 3;
-    }
+    .form-row-full { grid-column: span 3; }
     label {
       font-size: 11px;
       font-weight: 600;
@@ -106,7 +102,32 @@
     .btn-main { background: var(--primary); color: #fff; grid-column: span 2; }
     .btn-sec { background: #e2e8f0; color: #334155; }
     .btn-util { background: #0891b2; color: #fff; }
-    
+    .btn-reminder { background: #7c3aed; color: #fff; }
+
+    /* Reminder Box */
+    .reminder-box {
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 14px;
+    }
+    .reminder-header {
+      font-size: 13px;
+      font-weight: 700;
+      color: #6d28d9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .reminder-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
     .stats-card {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
@@ -135,7 +156,7 @@
       align-items: center;
       background: #fff;
     }
-    .record-bp { font-size: 17px; font-weight: 700; }
+    .record-bp { font-size: 16px; font-weight: 700; }
     .record-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
     .badge {
       font-size: 10px;
@@ -170,10 +191,9 @@
   <div class="container">
     <div class="header">
       <h1>🩺 BP Daily Log</h1>
-      <span id="installBadge" style="display:none; font-size:11px; background:#dbeafe; color:#1e40af; padding:3px 8px; border-radius:12px; font-weight:600;">📱 App Ready</span>
     </div>
 
-    <!-- Input Form -->
+    <!-- Data Input Form -->
     <div class="no-print">
       <form id="bpForm">
         <div class="form-grid">
@@ -195,7 +215,7 @@
           </div>
           <div class="form-row-full">
             <label>Notes / Context</label>
-            <input type="text" id="notes" placeholder="e.g. Morning before meds, rested 5 mins" />
+            <input type="text" id="notes" placeholder="e.g. Morning, before meds" />
           </div>
         </div>
 
@@ -208,9 +228,31 @@
           <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importJSON(event)" />
         </div>
       </form>
+
+      <!-- Reminder Section -->
+      <div class="reminder-box">
+        <div class="reminder-header">
+          <span>⏰ Daily Reminder Alerts</span>
+          <span id="notifStatus" style="font-size:11px; font-weight:normal; color:#6d28d9;"></span>
+        </div>
+        <div class="reminder-inputs">
+          <div>
+            <label>Morning Reminder</label>
+            <input type="time" id="mTime" value="08:00" onchange="saveReminderTimes()" />
+          </div>
+          <div>
+            <label>Evening Reminder</label>
+            <input type="time" id="eTime" value="20:00" onchange="saveReminderTimes()" />
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button type="button" class="btn-reminder" onclick="enableWebNotifications()">🔔 Turn On Notifications</button>
+          <button type="button" class="btn-sec" onclick="downloadCalendarReminder()">📅 Add to Mobile Calendar</button>
+        </div>
+      </div>
     </div>
 
-    <!-- Monthly Summary Card -->
+    <!-- Monthly Summary Statistics -->
     <div class="stats-card">
       <div>
         <div class="stat-label">Readings</div>
@@ -226,12 +268,12 @@
       </div>
     </div>
 
-    <!-- Recent Readings List -->
+    <!-- Persistent Record List -->
     <div class="records-list" id="recordsContainer"></div>
   </div>
 
   <script>
-    // --- Dynamic Manifest Generation for Mobile PWA ---
+    // Embedded App Manifest
     const manifest = {
       name: "Blood Pressure Daily Log",
       short_name: "BP Tracker",
@@ -251,8 +293,9 @@
     const blobManifest = new Blob([stringManifest], {type: 'application/json'});
     document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blobManifest));
 
-    // --- State & Operations ---
+    // Persistent Local Storage Keys
     const STORAGE_KEY = 'mobile_bp_records';
+    const REMINDER_KEY = 'mobile_bp_reminders';
     let logs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 
     function resetTime() {
@@ -283,14 +326,14 @@
         totalPulse += Number(item.pulse);
 
         const cat = classify(item.sys, item.dia);
-        const dateStr = new Date(item.time).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const dateStr = new Date(item.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
         const card = document.createElement('div');
         card.className = 'record-card';
         card.innerHTML = `
           <div>
             <div class="record-bp">
-              ${item.sys} / ${item.dia} <span style="font-size:13px; font-weight:normal; color:#64748b;">mmHg (${item.pulse} bpm)</span>
+              ${item.sys} / ${item.dia} <span style="font-size:12px; font-weight:normal; color:#64748b;">mmHg (${item.pulse} bpm)</span>
               <span class="badge ${cat.cls}">${cat.label}</span>
             </div>
             <div class="record-meta">${dateStr} ${item.notes ? '• ' + item.notes : ''}</div>
@@ -334,6 +377,107 @@
       }
     }
 
+    // --- Notification & Reminder Engine ---
+    function loadSavedReminders() {
+      const saved = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{"morning":"08:00","evening":"20:00"}');
+      document.getElementById('mTime').value = saved.morning;
+      document.getElementById('eTime').value = saved.evening;
+      checkNotifStatus();
+    }
+
+    function saveReminderTimes() {
+      const morning = document.getElementById('mTime').value;
+      const evening = document.getElementById('eTime').value;
+      localStorage.setItem(REMINDER_KEY, JSON.stringify({ morning, evening }));
+    }
+
+    function checkNotifStatus() {
+      if (!("Notification" in window)) {
+        document.getElementById('notifStatus').innerText = "(Unsupported Browser)";
+      } else if (Notification.permission === "granted") {
+        document.getElementById('notifStatus').innerText = "Active ✅";
+      } else {
+        document.getElementById('notifStatus').innerText = "Off ⚠️";
+      }
+    }
+
+    async function enableWebNotifications() {
+      if (!("Notification" in window)) {
+        alert("This browser does not support web notifications. Please use the 'Add to Mobile Calendar' button instead.");
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      checkNotifStatus();
+      if (perm === "granted") {
+        new Notification("🩺 BP Tracker Reminders Active", {
+          body: "You will receive daily prompts at your scheduled times."
+        });
+        saveReminderTimes();
+      } else {
+        alert("Notification permission was denied. You can still use the Calendar button to set phone alarms!");
+      }
+    }
+
+    // Interval checker for active tabs / PWA mode
+    setInterval(() => {
+      if (Notification.permission !== "granted") return;
+      const saved = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{"morning":"08:00","evening":"20:00"}');
+      const now = new Date();
+      const currentHM = now.toTimeString().slice(0, 5);
+      const lastFired = localStorage.getItem('last_reminder_fired');
+
+      if ((currentHM === saved.morning || currentHM === saved.evening) && lastFired !== currentHM) {
+        new Notification("🩺 Blood Pressure Check Time", {
+          body: "Time to rest for 5 minutes and record your daily BP reading.",
+          requireInteraction: true
+        });
+        localStorage.setItem('last_reminder_fired', currentHM);
+      }
+    }, 30000);
+
+    // One-Click Native Calendar Recurring Alarm Export (.ics file)
+    function downloadCalendarReminder() {
+      const saved = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{"morning":"08:00","evening":"20:00"}');
+      const mHour = saved.morning.replace(":", "") + "00";
+      const eHour = saved.evening.replace(":", "") + "00";
+
+      const icsData = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//BP Daily Tracker//EN
+BEGIN:VEVENT
+UID:bp-morning-${Date.now()}@tracker.local
+SUMMARY:🩺 Log Morning Blood Pressure
+DESCRIPTION:Sit quietly for 5 minutes before taking your morning BP reading.
+RRULE:FREQ=DAILY
+DTSTART:20260101T${mHour}
+BEGIN:VALARM
+TRIGGER:-PT0M
+ACTION:DISPLAY
+DESCRIPTION:Time to log BP
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:bp-evening-${Date.now()}@tracker.local
+SUMMARY:🩺 Log Evening Blood Pressure
+DESCRIPTION:Time for your evening blood pressure and pulse check.
+RRULE:FREQ=DAILY
+DTSTART:20260101T${eHour}
+BEGIN:VALARM
+TRIGGER:-PT0M
+ACTION:DISPLAY
+DESCRIPTION:Time to log BP
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+
+      const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = "Daily_BP_Reminders.ics";
+      a.click();
+    }
+
+    // --- JSON & CSV Operations ---
     function exportJSON() {
       if (logs.length === 0) return alert('No data to export.');
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs, null, 2));
@@ -375,6 +519,7 @@
       a.click();
     }
 
+    loadSavedReminders();
     render();
   </script>
 </body>
