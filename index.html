@@ -33,7 +33,7 @@
       padding: 12px;
     }
     .container {
-      max-width: 600px;
+      max-width: 750px;
       margin: 0 auto;
       background: var(--card);
       padding: 16px;
@@ -180,10 +180,27 @@
       padding: 4px 8px;
       cursor: pointer;
     }
+
+    /* Print View: Compact Two-Column Layout */
     @media print {
       body { background: #fff; padding: 0; }
-      .container { box-shadow: none; max-width: 100%; border-radius: 0; }
+      .container { box-shadow: none; max-width: 100%; border-radius: 0; padding: 0; }
       .no-print { display: none !important; }
+      .records-list {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+        page-break-inside: auto;
+      }
+      .record-card {
+        padding: 6px 8px !important;
+        font-size: 12px !important;
+        break-inside: avoid;
+        border: 1px solid #cbd5e1 !important;
+      }
+      .record-bp { font-size: 13px !important; }
+      .record-meta { font-size: 10px !important; }
+      .stats-card { margin: 8px 0 !important; padding: 6px !important; }
     }
   </style>
 </head>
@@ -221,9 +238,9 @@
 
         <div class="btn-grid">
           <button type="submit" class="btn-main">➕ Save Reading</button>
-          <button type="button" class="btn-sec" onclick="window.print()">📄 Doctor's PDF</button>
+          <button type="button" class="btn-sec" onclick="window.print()">📄 Doctor's PDF (2-Col)</button>
           <button type="button" class="btn-sec" onclick="exportCSV()">📊 Export CSV</button>
-          <button type="button" class="btn-util" onclick="exportJSON()">💾 Backup (JSON)</button>
+          <button type="button" class="btn-util" onclick="exportJSON()">💾 Backup (Full JSON)</button>
           <button type="button" class="btn-util" onclick="document.getElementById('importFile').click()">📂 Restore Data</button>
           <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importJSON(event)" />
         </div>
@@ -273,7 +290,6 @@
   </div>
 
   <script>
-    // Embedded App Manifest
     const manifest = {
       name: "Blood Pressure Daily Log",
       short_name: "BP Tracker",
@@ -290,10 +306,9 @@
       ]
     };
     const stringManifest = JSON.stringify(manifest);
-    const blobManifest = new Blob([stringManifest], {type: 'application/json'});
+    const blobManifest = new Blob([stringManifest], { type: 'application/json' });
     document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blobManifest));
 
-    // Persistent Local Storage Keys
     const STORAGE_KEY = 'mobile_bp_records';
     const REMINDER_KEY = 'mobile_bp_reminders';
     let logs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -326,14 +341,16 @@
         totalPulse += Number(item.pulse);
 
         const cat = classify(item.sys, item.dia);
-        const dateStr = new Date(item.time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const dateStr = new Date(item.time).toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
 
         const card = document.createElement('div');
         card.className = 'record-card';
         card.innerHTML = `
           <div>
             <div class="record-bp">
-              ${item.sys} / ${item.dia} <span style="font-size:12px; font-weight:normal; color:#64748b;">mmHg (${item.pulse} bpm)</span>
+              ${item.sys}/${item.dia} <span style="font-size:12px; font-weight:normal; color:#64748b;">(${item.pulse} bpm)</span>
               <span class="badge ${cat.cls}">${cat.label}</span>
             </div>
             <div class="record-meta">${dateStr} ${item.notes ? '• ' + item.notes : ''}</div>
@@ -377,7 +394,6 @@
       }
     }
 
-    // --- Notification & Reminder Engine ---
     function loadSavedReminders() {
       const saved = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{"morning":"08:00","evening":"20:00"}');
       document.getElementById('mTime').value = saved.morning;
@@ -396,6 +412,8 @@
         document.getElementById('notifStatus').innerText = "(Unsupported Browser)";
       } else if (Notification.permission === "granted") {
         document.getElementById('notifStatus').innerText = "Active ✅";
+      } else if (Notification.permission === "denied") {
+        document.getElementById('notifStatus').innerText = "Blocked 🚫";
       } else {
         document.getElementById('notifStatus').innerText = "Off ⚠️";
       }
@@ -403,24 +421,27 @@
 
     async function enableWebNotifications() {
       if (!("Notification" in window)) {
-        alert("This browser does not support web notifications. Please use the 'Add to Mobile Calendar' button instead.");
+        alert("This browser does not support web notifications. Please use 'Add to Mobile Calendar'.");
         return;
       }
-      const perm = await Notification.requestPermission();
-      checkNotifStatus();
-      if (perm === "granted") {
-        new Notification("🩺 BP Tracker Reminders Active", {
-          body: "You will receive daily prompts at your scheduled times."
-        });
-        saveReminderTimes();
-      } else {
-        alert("Notification permission was denied. You can still use the Calendar button to set phone alarms!");
+      try {
+        const perm = await Notification.requestPermission();
+        checkNotifStatus();
+        if (perm === "granted") {
+          new Notification("🩺 Reminders Enabled", {
+            body: "Daily BP checks will trigger at your set times."
+          });
+          saveReminderTimes();
+        } else {
+          alert("Notifications are disabled or blocked in your browser settings.");
+        }
+      } catch (err) {
+        console.error(err);
       }
     }
 
-    // Interval checker for active tabs / PWA mode
     setInterval(() => {
-      if (Notification.permission !== "granted") return;
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
       const saved = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{"morning":"08:00","evening":"20:00"}');
       const now = new Date();
       const currentHM = now.toTimeString().slice(0, 5);
@@ -428,14 +449,13 @@
 
       if ((currentHM === saved.morning || currentHM === saved.evening) && lastFired !== currentHM) {
         new Notification("🩺 Blood Pressure Check Time", {
-          body: "Time to rest for 5 minutes and record your daily BP reading.",
+          body: "Sit quietly for 5 minutes and take your reading.",
           requireInteraction: true
         });
         localStorage.setItem('last_reminder_fired', currentHM);
       }
     }, 30000);
 
-    // One-Click Native Calendar Recurring Alarm Export (.ics file)
     function downloadCalendarReminder() {
       const saved = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{"morning":"08:00","evening":"20:00"}');
       const mHour = saved.morning.replace(":", "") + "00";
@@ -477,13 +497,18 @@ END:VCALENDAR`;
       a.click();
     }
 
-    // --- JSON & CSV Operations ---
+    // Complete Backup (includes logs and alarm settings)
     function exportJSON() {
-      if (logs.length === 0) return alert('No data to export.');
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs, null, 2));
+      const reminders = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{}');
+      const exportPayload = {
+        exportedAt: new Date().toISOString(),
+        reminders: reminders,
+        records: logs
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
       const a = document.createElement('a');
       a.href = dataStr;
-      a.download = `BP_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `BP_Full_Backup_${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
     }
 
@@ -493,22 +518,30 @@ END:VCALENDAR`;
       const reader = new FileReader();
       reader.onload = function(evt) {
         try {
-          const data = JSON.parse(evt.target.result);
-          if (Array.isArray(data)) {
-            logs = data;
-            render();
-            alert('Data restored successfully!');
+          const parsed = JSON.parse(evt.target.result);
+          if (Array.isArray(parsed)) {
+            logs = parsed;
+          } else if (parsed && Array.isArray(parsed.records)) {
+            logs = parsed.records;
+            if (parsed.reminders) {
+              localStorage.setItem(REMINDER_KEY, JSON.stringify(parsed.reminders));
+              loadSavedReminders();
+            }
+          } else {
+            throw new Error("Invalid structure");
           }
+          render();
+          alert('Data restored successfully!');
         } catch(err) {
-          alert('Invalid backup file.');
+          alert('Invalid backup file format.');
         }
       };
       reader.readAsText(file);
     }
 
     function exportCSV() {
-      if (logs.length === 0) return alert('No data.');
-      let csv = "Date,Systolic,Diastolic,Pulse,Classification,Notes\n";
+      if (logs.length === 0) return alert('No data to export.');
+      let csv = "Date,Systolic,Diastolic,Pulse,Category,Notes\n";
       logs.forEach(r => {
         csv += `"${r.time}",${r.sys},${r.dia},${r.pulse},"${classify(r.sys, r.dia).label}","${r.notes || ''}"\n`;
       });
