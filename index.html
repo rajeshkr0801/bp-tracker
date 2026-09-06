@@ -181,7 +181,6 @@
       cursor: pointer;
     }
 
-    /* Print View: Compact Two-Column Layout */
     @media print {
       body { background: #fff; padding: 0; }
       .container { box-shadow: none; max-width: 100%; border-radius: 0; padding: 0; }
@@ -491,25 +490,42 @@ END:VEVENT
 END:VCALENDAR`;
 
       const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = url;
       a.download = "Daily_BP_Reminders.ics";
+      document.body.appendChild(a);
       a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
     }
 
-    // Complete Backup (includes logs and alarm settings)
+    // JSON Backup with Blob and DOM mount
     function exportJSON() {
-      const reminders = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{}');
-      const exportPayload = {
-        exportedAt: new Date().toISOString(),
-        reminders: reminders,
-        records: logs
-      };
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
-      const a = document.createElement('a');
-      a.href = dataStr;
-      a.download = `BP_Full_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
+      try {
+        const reminders = JSON.parse(localStorage.getItem(REMINDER_KEY) || '{}');
+        const exportPayload = {
+          exportedAt: new Date().toISOString(),
+          reminders: reminders,
+          records: logs
+        };
+        const jsonStr = JSON.stringify(exportPayload, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `BP_Full_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      } catch (err) {
+        alert('Could not export backup: ' + err.message);
+      }
     }
 
     function importJSON(e) {
@@ -537,6 +553,7 @@ END:VCALENDAR`;
         }
       };
       reader.readAsText(file);
+      e.target.value = ''; // Reset so the same file can be chosen again
     }
 
     function exportCSV() {
@@ -545,11 +562,17 @@ END:VCALENDAR`;
       logs.forEach(r => {
         csv += `"${r.time}",${r.sys},${r.dia},${r.pulse},"${classify(r.sys, r.dia).label}","${r.notes || ''}"\n`;
       });
-      const blob = new Blob([csv], { type: 'text/csv' });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = url;
       a.download = `BP_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
       a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
     }
 
     loadSavedReminders();
